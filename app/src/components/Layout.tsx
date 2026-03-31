@@ -1,7 +1,8 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { FolderOpen, DollarSign } from 'lucide-react';
+import { LayoutDashboard, FolderOpen, DollarSign } from 'lucide-react';
 
 const navItems = [
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/projects', label: 'Projekty', icon: FolderOpen },
   { to: '/pricing', label: 'Cennik', icon: DollarSign },
 ];
