@@ -5,7 +5,6 @@ import {
   calcLaborTotal,
   calcExternalTotal,
   calcNetTotal,
-  calcVat,
   calcGross,
   fmt,
 } from '../utils/calculations';
@@ -17,6 +16,16 @@ interface Props {
   onSave: (project: Project) => void;
 }
 
+const COMPANY = {
+  name: 'PromoAgency Sp. z o.o.',
+  street: 'ul. Armii Krajowej 18',
+  city: '30-150 Kraków',
+  email: 'biuro@promoagency.pl',
+  phone: '+48 733 607 401',
+  nip: '6762443288',
+  krs: '0000393240',
+};
+
 export default function OfferTab({ project, onSave }: Props) {
   const [form, setForm] = useState({
     offerNotes: project.offerNotes,
@@ -27,6 +36,7 @@ export default function OfferTab({ project, onSave }: Props) {
     acceptanceMethod: project.acceptanceMethod,
   });
   const [zipPassword, setZipPassword] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   function update(key: keyof typeof form, value: string | number) {
     setForm(prev => ({ ...prev, [key]: value }));
@@ -36,18 +46,28 @@ export default function OfferTab({ project, onSave }: Props) {
     onSave({ ...project, ...form });
   }
 
-  function handleExportPdf() {
-    const updated = { ...project, ...form };
-    const doc = generateOfferPdf(updated);
-    const filename = `Oferta_${project.inquiryNumber || 'draft'}_${new Date().toISOString().slice(0, 10)}`;
-    exportPdf(doc, filename);
+  async function handleExportPdf() {
+    setExporting(true);
+    try {
+      const updated = { ...project, ...form };
+      const doc = await generateOfferPdf(updated);
+      const filename = `Oferta_${project.inquiryNumber || 'draft'}_${new Date().toISOString().slice(0, 10)}`;
+      exportPdf(doc, filename);
+    } finally {
+      setExporting(false);
+    }
   }
 
   async function handleExportZip() {
-    const updated = { ...project, ...form };
-    const doc = generateOfferPdf(updated);
-    const filename = `Oferta_${project.inquiryNumber || 'draft'}_${new Date().toISOString().slice(0, 10)}`;
-    await exportPasswordZip(doc, filename, zipPassword);
+    setExporting(true);
+    try {
+      const updated = { ...project, ...form };
+      const doc = await generateOfferPdf(updated);
+      const filename = `Oferta_${project.inquiryNumber || 'draft'}_${new Date().toISOString().slice(0, 10)}`;
+      await exportPasswordZip(doc, filename, zipPassword);
+    } finally {
+      setExporting(false);
+    }
   }
 
   const netTotal = calcNetTotal(project.estimate, project.discountPercent);
@@ -61,9 +81,28 @@ export default function OfferTab({ project, onSave }: Props) {
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Podgląd oferty</h3>
 
         <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+          {/* Company header */}
+          <div className="flex items-start justify-between border-b pb-4">
+            <div className="flex items-center gap-3">
+              <img
+                src="/logo.png"
+                alt="Logo"
+                className="h-12 object-contain"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            </div>
+            <div className="text-right text-xs text-gray-500 leading-relaxed">
+              <div className="font-semibold text-gray-700">{COMPANY.name}</div>
+              <div>{COMPANY.street}</div>
+              <div>{COMPANY.city}</div>
+              <div className="mt-1">{COMPANY.email}</div>
+              <div>Tel: {COMPANY.phone}</div>
+              <div>NIP: {COMPANY.nip} | KRS: {COMPANY.krs}</div>
+            </div>
+          </div>
+
           <div className="text-center border-b pb-4">
             <h4 className="text-xl font-bold text-[#29417a]">OFERTA DO ZAPYTANIA</h4>
-            <p className="text-sm text-gray-500 mt-1">PromoAgency</p>
           </div>
 
           <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
@@ -94,6 +133,11 @@ export default function OfferTab({ project, onSave }: Props) {
               <span>Razem brutto:</span>
               <span>{fmt(calcGross(netTotal))} zł</span>
             </div>
+          </div>
+
+          {/* Footer with company info */}
+          <div className="border-t pt-3 text-center text-[10px] text-gray-400">
+            {COMPANY.name} | {COMPANY.street}, {COMPANY.city} | NIP: {COMPANY.nip} | {COMPANY.email} | {COMPANY.phone}
           </div>
         </div>
       </div>
@@ -168,10 +212,11 @@ export default function OfferTab({ project, onSave }: Props) {
         <div className="flex flex-wrap gap-4 items-end">
           <button
             onClick={handleExportPdf}
-            className="flex items-center gap-2 bg-[#29417a] text-white px-5 py-2.5 rounded-lg hover:bg-[#1e3060] transition-colors font-medium"
+            disabled={exporting}
+            className="flex items-center gap-2 bg-[#29417a] text-white px-5 py-2.5 rounded-lg hover:bg-[#1e3060] transition-colors font-medium disabled:opacity-50"
           >
             <FileDown size={18} />
-            Pobierz PDF
+            {exporting ? 'Generowanie...' : 'Pobierz PDF'}
           </button>
 
           <div className="flex items-end gap-2">
@@ -187,10 +232,11 @@ export default function OfferTab({ project, onSave }: Props) {
             </label>
             <button
               onClick={handleExportZip}
-              className="flex items-center gap-2 bg-gray-700 text-white px-5 py-2.5 rounded-lg hover:bg-gray-800 transition-colors font-medium"
+              disabled={exporting}
+              className="flex items-center gap-2 bg-gray-700 text-white px-5 py-2.5 rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:opacity-50"
             >
               <FileArchive size={18} />
-              Pobierz ZIP
+              {exporting ? 'Generowanie...' : 'Pobierz ZIP'}
             </button>
           </div>
         </div>

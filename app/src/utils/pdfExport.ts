@@ -11,17 +11,84 @@ import {
   fmt,
 } from './calculations';
 
-export function generateOfferPdf(project: Project): jsPDF {
+const COMPANY = {
+  name: 'PromoAgency Sp. z o.o.',
+  street: 'ul. Armii Krajowej 18',
+  city: '30-150 Kraków',
+  email: 'biuro@promoagency.pl',
+  phone: '+48 733 607 401',
+  krs: '0000393240',
+  nip: '6762443288',
+};
+
+async function loadLogo(): Promise<string | null> {
+  try {
+    const resp = await fetch('/logo.png');
+    if (!resp.ok) return null;
+    const blob = await resp.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function generateOfferPdf(project: Project): Promise<jsPDF> {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
-  let y = 20;
+  let y = 15;
 
-  // Header
-  doc.setFontSize(18);
+  // --- Logo + company header ---
+  const logoData = await loadLogo();
+  const headerLeftX = 14;
+  let headerRightX = pageWidth - 14;
+
+  if (logoData) {
+    try {
+      doc.addImage(logoData, 'PNG', headerLeftX, y, 40, 16);
+    } catch {
+      // logo failed to load, skip
+    }
+  }
+
+  // Company info - right side
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  const companyLines = [
+    COMPANY.name,
+    COMPANY.street,
+    COMPANY.city,
+    '',
+    COMPANY.email,
+    `Tel: ${COMPANY.phone}`,
+    `NIP: ${COMPANY.nip}`,
+    `KRS: ${COMPANY.krs}`,
+  ];
+  companyLines.forEach((line, i) => {
+    doc.text(line, headerRightX, y + 2 + i * 3.5, { align: 'right' });
+  });
+
+  y += 35;
+
+  // Divider line
+  doc.setDrawColor(41, 65, 122);
+  doc.setLineWidth(0.5);
+  doc.line(14, y, pageWidth - 14, y);
+  y += 8;
+
+  // Title
+  doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(41, 65, 122);
   doc.text('OFERTA DO ZAPYTANIA', pageWidth / 2, y, { align: 'center' });
-  y += 12;
+  doc.setTextColor(0, 0, 0);
+  y += 10;
 
+  // Header info
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
 
@@ -75,7 +142,6 @@ export function generateOfferPdf(project: Project): jsPDF {
     theme: 'grid',
     styles: { fontSize: 9, cellPadding: 3 },
     headStyles: { fillColor: [41, 65, 122], textColor: [255, 255, 255] },
-    foot: [],
   });
 
   y = (doc as any).lastAutoTable.finalY + 10;
@@ -149,7 +215,7 @@ export function generateOfferPdf(project: Project): jsPDF {
   y = (doc as any).lastAutoTable.finalY + 10;
 
   // Conditions
-  if (y > 250) {
+  if (y > 240) {
     doc.addPage();
     y = 20;
   }
@@ -183,10 +249,20 @@ export function generateOfferPdf(project: Project): jsPDF {
   });
 
   // Footer
-  const finalY = (doc as any).lastAutoTable.finalY + 15;
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'italic');
-  doc.text('Dokument wygenerowany automatycznie - PromoAgency', pageWidth / 2, finalY, { align: 'center' });
+  const finalY = (doc as any).lastAutoTable.finalY + 12;
+  doc.setDrawColor(41, 65, 122);
+  doc.setLineWidth(0.3);
+  doc.line(14, finalY, pageWidth - 14, finalY);
+
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(120, 120, 120);
+  doc.text(
+    `${COMPANY.name} | ${COMPANY.street}, ${COMPANY.city} | NIP: ${COMPANY.nip} | ${COMPANY.email} | ${COMPANY.phone}`,
+    pageWidth / 2,
+    finalY + 5,
+    { align: 'center' }
+  );
 
   return doc;
 }
